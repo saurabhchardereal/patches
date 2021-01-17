@@ -1,0 +1,74 @@
+From ea50bbba6301a94f8a3b305ab435ac5333938359 Mon Sep 17 00:00:00 2001
+From: Pig <pig.priv@gmail.com>
+Date: Tue, 22 Sep 2020 22:00:41 +0800
+Subject: [PATCH] audio_amplifier: Add new hook for setting amp feedback
+
+Change-Id: I6de5e9c9dbbb6214b166f30628734aeb406c8a2a
+---
+ hal/audio_extn/audio_amplifier.c | 8 ++++++++
+ hal/audio_extn/audio_amplifier.h | 2 ++
+ hal/audio_hw.c                   | 2 ++
+ 3 files changed, 12 insertions(+)
+
+diff --git a/hal/audio_extn/audio_amplifier.c b/hal/audio_extn/audio_amplifier.c
+index 8be6500..f452954 100644
+--- a/hal/audio_extn/audio_amplifier.c
++++ b/hal/audio_extn/audio_amplifier.c
+@@ -151,6 +151,14 @@ int amplifier_in_set_parameters(struct str_parms *parms)
+     return 0;
+ }
+ 
++int amplifier_set_feedback(void* adev, uint32_t devices, bool enable)
++{
++    amp.adev = (struct audio_device*)adev;
++    if (amp.hw && amp.hw->set_feedback)
++        return amp.hw->set_feedback(amp.hw, amp.adev, devices, enable);
++    return 0;
++}
++
+ int amplifier_close(void)
+ {
+     if (amp.hw)
+diff --git a/hal/audio_extn/audio_amplifier.h b/hal/audio_extn/audio_amplifier.h
+index 641f023..07f8db5 100644
+--- a/hal/audio_extn/audio_amplifier.h
++++ b/hal/audio_extn/audio_amplifier.h
+@@ -30,6 +30,7 @@
+ #define amplifier_set_parameters(parms) (0)
+ #define amplifier_out_set_parameters(parms) (0)
+ #define amplifier_in_set_parameters(parms) (0)
++#define amplifier_set_feedback(adev, devices, enable) (0)
+ #define amplifier_close() (0)
+ #else
+ 
+@@ -46,6 +47,7 @@ int amplifier_input_stream_standby(struct audio_stream_in *stream);
+ int amplifier_set_parameters(struct str_parms *parms);
+ int amplifier_out_set_parameters(struct str_parms *parms);
+ int amplifier_in_set_parameters(struct str_parms *parms);
++int amplifier_set_feedback(void* adev, uint32_t devices, bool enable);
+ int amplifier_close(void);
+ #endif
+ 
+diff --git a/hal/audio_hw.c b/hal/audio_hw.c
+index 300107d..03b1823 100644
+--- a/hal/audio_hw.c
++++ b/hal/audio_hw.c
+@@ -1336,6 +1336,7 @@ int enable_snd_device(struct audio_device *adev,
+         audio_extn_dev_arbi_acquire(snd_device);
+         amplifier_enable_devices(snd_device, true);
+         audio_route_apply_and_update_path(adev->audio_route, device_name);
++        amplifier_set_feedback(adev, snd_device, true);
+ 
+         if (SND_DEVICE_OUT_HEADPHONES == snd_device &&
+             !adev->native_playback_enabled &&
+@@ -1437,6 +1438,7 @@ int disable_snd_device(struct audio_device *adev,
+         }
+ 
+         audio_extn_utils_release_snd_device(snd_device);
++        amplifier_set_feedback(adev, snd_device, false);
+     } else {
+         if (platform_split_snd_device(adev->platform,
+                     snd_device,
+-- 
+2.29.2
+
